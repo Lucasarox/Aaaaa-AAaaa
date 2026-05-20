@@ -1,0 +1,122 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {uid}
+    // Fields:
+    //   - uid: string (required)
+    //   - name: string (required)
+    //   - contact: string (required)
+    //   - address: string (required)
+    //   - role: string (required, 'driver' | 'passenger')
+    //
+    // Collection: routes
+    // Document ID: {routeId}
+    // Fields:
+    //   - id: string (required)
+    //   - driverId: string (required)
+    //   - name: string (required)
+    //   - status: string (required, 'active' | 'inactive')
+    //   - passengerOrder: list (optional)
+    //   - votingDeadline: timestamp (optional)
+    //   - maxPassengers: int (optional)
+    //
+    // Collection: routes/{routeId}/passengers
+    // Document ID: {passengerId}
+    // Fields:
+    //   - routeId: string (required)
+    //   - passengerId: string (required)
+    //   - status: string (required, 'vai' | 'não vai' | 'só ida' | 'só volta' | 'pendente')
+    //   - pickupLocation: map (optional)
+    //
+    // Collection: locations
+    // Document ID: {routeId}
+    // Fields:
+    //   - routeId: string (required)
+    //   - lat: float (required)
+    //   - lng: float (required)
+    //   - updatedAt: timestamp (required)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         (request.auth.token.email == "Lucasarox@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isDriver() {
+      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'driver';
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{uid} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(uid) && hasRequiredFields(['uid', 'name', 'contact', 'address', 'role']) && 
+                      request.resource.data.role in ['driver', 'passenger'];
+      allow update: if isOwner(uid) && hasOnlyAllowedFields(['name', 'contact', 'address', 'role']);
+    }
+
+    match /routes/{routeId} {
+      allow read: if isAuthenticated();
+      allow create: if isDriver() && request.resource.data.driverId == request.auth.uid;
+      allow update: if isAuthenticated() && (
+        // Driver can update everything
+        (resource.data.driverId == request.auth.uid) ||
+        // Passengers can only update if they are in the route? No, passengers don't update the route doc directly.
+        // But maybe they need to see it.
+        false
+      );
+      allow delete: if isAuthenticated() && resource.data.driverId == request.auth.uid;
+
+      match /passengers/{passengerId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && (isOwner(passengerId) || get(/databases/$(database)/documents/routes/$(routeId)).data.driverId == request.auth.uid);
+        allow update: if isAuthenticated() && (isOwner(passengerId) || get(/databases/$(database)/documents/routes/$(routeId)).data.driverId == request.auth.uid);
+        allow delete: if isAuthenticated() && (isOwner(passengerId) || get(/databases/$(database)/documents/routes/$(routeId)).data.driverId == request.auth.uid);
+      }
+    }
+
+    match /locations/{routeId} {
+      allow read: if isAuthenticated() && (
+        // Van location is visible only during active trips
+        get(/databases/$(database)/documents/routes/$(routeId)).data.status == 'active'
+      );
+      allow write: if isAuthenticated() && (
+        // Only the driver of the route can update location
+        get(/databases/$(database)/documents/routes/$(routeId)).data.driverId == request.auth.uid
+      );
+    }
+
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}

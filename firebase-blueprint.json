@@ -1,0 +1,81 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile for drivers and passengers",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "contact": { "type": "string" },
+        "address": { "type": "string" },
+        "role": { "type": "string", "enum": ["driver", "passenger"] }
+      },
+      "required": ["uid", "name", "contact", "address", "role"]
+    },
+    "Route": {
+      "title": "Route",
+      "description": "A transport route managed by a driver",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "driverId": { "type": "string" },
+        "name": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "inactive"] },
+        "passengerOrder": { "type": "array", "items": { "type": "string" } },
+        "votingDeadline": { "type": "string", "format": "date-time" },
+        "maxPassengers": { "type": "integer" }
+      },
+      "required": ["id", "driverId", "name", "status"]
+    },
+    "RoutePassenger": {
+      "title": "RoutePassenger",
+      "description": "A passenger's participation in a specific route",
+      "type": "object",
+      "properties": {
+        "routeId": { "type": "string" },
+        "passengerId": { "type": "string" },
+        "status": { "type": "string", "enum": ["vai", "não vai", "só ida", "só volta", "pendente"] },
+        "pickupLocation": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lng": { "type": "number" },
+            "address": { "type": "string" }
+          }
+        }
+      },
+      "required": ["routeId", "passengerId", "status"]
+    },
+    "Location": {
+      "title": "Location",
+      "description": "Real-time location of the van",
+      "type": "object",
+      "properties": {
+        "routeId": { "type": "string" },
+        "lat": { "type": "number" },
+        "lng": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["routeId", "lat", "lng", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/routes/{routeId}": {
+      "schema": "Route",
+      "description": "Route definitions"
+    },
+    "/routes/{routeId}/passengers/{passengerId}": {
+      "schema": "RoutePassenger",
+      "description": "Passengers in a route"
+    },
+    "/locations/{routeId}": {
+      "schema": "Location",
+      "description": "Real-time van locations"
+    }
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "name": "VemVans",
+  "description": "Transporte por van focado em comunicação eficiente e redução de atrasos.",
+  "requestFramePermissions": ["geolocation"]
+}
