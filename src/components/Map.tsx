@@ -14,9 +14,7 @@ export default function Map({ center, zoom = 15, markers = [] }: MapProps) {
 
   useEffect(() => {
     const loader = new Loader({
-      apiKey: '', // The platform will inject the API key if available, or I can use a public one if needed.
-      // Actually, for this demo, I'll assume the user might need to provide one, 
-      // but I'll try to use the library to load it.
+      apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
       version: "weekly",
     });
 
